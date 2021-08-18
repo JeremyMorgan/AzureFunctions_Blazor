@@ -1,0 +1,139 @@
+﻿@page "/fooditemlist"
+@using WebApplication1.Models
+@using System.Text.Json
+@using System.Text
+@using System.Net.Mime
+@using System.Net
+
+<h3>Food Items</h3>
+<p>@DisplayMessage</p>
+
+<label>Food</label>
+<input @bind="FoodItemName" />
+<br />
+<label>Name</label>
+<input @bind="FoodItemPerson" />
+<br />
+<label>Vegetarian?</label>
+<input type="checkbox" @bind="FoodItemVegetarian" />
+<br />
+<label>Gluten Free?</label>
+<input type="checkbox" @bind="FoodItemGlutenFree" />
+<br />
+<br />
+<button type="submit" @onclick="@AddFoodItem">Add Food Item</button>
+
+@if (FoodItems != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Name of Food</th>
+                <th scope="col">Person Bringing it</th>
+                <th scope="col">Vegetarian?</th>
+                <th scope="col">GlutenFree?</th>
+                <th scope="col">Action</th>
+
+            </tr>
+        </thead>
+        @foreach (var fooditem in FoodItems)
+        {
+            <tr>
+                <td>@fooditem.Name</td>
+                <td>@fooditem.Person</td>
+                <td>@fooditem.Vegetarian</td>
+                <td>@fooditem.Glutenfree</td>
+                <td><button @onclick="@(() => DeleteFoodItem(@fooditem.Id))">DELETE</button></td>
+            </tr>
+        }
+    </table>
+}
+
+
+
+@code {
+
+    public string DisplayMessage { get; set; }
+    public FoodItem[] FoodItems { get; set; }
+    public string FoodItemName { get; set; }
+    public string FoodItemPerson { get; set; }
+    public bool FoodItemVegetarian { get; set; }
+    public bool FoodItemGlutenFree { get; set; }
+    private const string BaseUrl = "https://turkeyfunction.azurewebsites.net/api/fooditem/";
+
+    protected override async Task OnInitializedAsync()
+    {
+        DisplayMessage = "welcome!";
+        await PopulateTable();
+    }
+
+
+    private async Task AddFoodItem()
+    {
+        HttpClient client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+
+        HttpResponseMessage response = null;
+
+        var payload = new FoodItem()
+        {
+            Name = FoodItemName,
+            Person = FoodItemPerson,
+            Vegetarian = FoodItemVegetarian,
+            Glutenfree = FoodItemGlutenFree
+        };
+
+        var payloadstring = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, MediaTypeNames.Application.Json);
+
+        response = await client.PostAsync(client.BaseAddress, payloadstring);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await PopulateTable();
+            DisplayMessage = "Added an item!";
+        }
+        else
+        {
+            DisplayMessage = response.StatusCode.ToString();
+        }
+    }
+
+    private async Task DeleteFoodItem(string id)
+    {
+        HttpClient client = new HttpClient { BaseAddress = new Uri(BaseUrl + id) };
+
+        HttpResponseMessage response = null;
+
+        response = await client.DeleteAsync(client.BaseAddress);
+
+        if (response.IsSuccessStatusCode)
+        {
+            DisplayMessage = "We Deleted " + id;
+        }
+        else
+        {
+            DisplayMessage = response.StatusCode.ToString();
+        }
+
+        await PopulateTable();
+    }
+
+    private async Task PopulateTable()
+    {
+        HttpClient client = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+
+        HttpResponseMessage response = null;
+
+        response = await client.GetAsync(client.BaseAddress);
+
+        if (response.Content is object && response.Content.Headers.ContentType.MediaType == "application/json")
+        {
+            var content = await response.Content.ReadAsStringAsync();
+            FoodItems = JsonSerializer.Deserialize<FoodItem[]>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        else
+        {
+            DisplayMessage = "nothing found";
+        }
+    }
+
+}
