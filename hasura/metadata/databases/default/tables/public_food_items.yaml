@@ -1,0 +1,3 @@
+table:
+  name: food_items
+  schema: public
